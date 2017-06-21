@@ -75,5 +75,8 @@ come up with something else.
 ### Using reserved type flag values
 "You got a tarball from the future" is probably a more realistic case than "you
 got a file with corrupted data," so we may have more luck using that strategy.
+To test this, we're going to need a tarfile header generator.
 
-**TODO**
+#### tar header encoder
+```pl TODO decide on this syntax
+```
