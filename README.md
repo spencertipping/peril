@@ -21,3 +21,6 @@ You can also give Peril a try in a preinstalled environment:
 ```sh
 $ docker run --rm -it spencertipping/peril
 ```
+
+## Documentation
+See the [literate source code](peril.p.md).
