@@ -78,5 +78,50 @@ got a file with corrupted data," so we may have more luck using that strategy.
 To test this, we're going to need a tarfile header generator.
 
 #### tar header encoder
-```pl TODO decide on this syntax
+```sh
+$ ni 1p'use constant tar_header_pack =>
+          q{ a100 a8 a8 a8 a12 a12 a8 c a100 a6 a2 a32 a32 a8 a8 a155 };
+
+        sub octify {sprintf "\%0$_[1]o", $_[0]}
+        sub tar_header {
+          my ($filename, $mode, $uid, $gid, $size, $mtime, # checksum (generated)
+              $ftype, $linkname, $magic, $ustar_version, $uname, $gname, $major,
+              $minor, $prefix) = @_;
+          $_ = octify $_, 7  for $mode, $uid, $gid, $major, $minor;
+          $_ = octify $_, 11 for $size, $mtime;
+          my $checksum_template = pack tar_header_pack,
+            my @fs =
+              ($filename, $mode, $uid, $gid, $size, $mtime, "        ", $ftype,
+               $linkname, $magic, $ustar_version, $uname, $gname,
+               $major, $minor, $prefix);
+          $fs[6] = octify unpack("%24C*", $checksum_template), 6;
+          pack tar_header_pack, @fs;
+        }
+
+        print pack"a512", tar_header(
+          "#!/usr/bin/env perl\n<<'\'_\'';\n<script type=\"peril\">",
+          0644,
+          0,
+          0,
+          512,
+          time(),
+          0,
+          "",
+          "ustar\0",
+          "00",
+          "spencertipping",
+          "spencertipping",
+          0,
+          0,
+          "peril_artifact_delete_this_directory");
+        print pack"a512", qq{</script>\n_\nprint "perl works!\n"\n__END__\n}
+                        . qq{<script>alert("webpage works")</script>};
+        print "\0"x1024;
+        ()' \>test-tarfile
+
+$ chmod +x test-tarfile
+$ ./test-tarfile
+perl works!
+
+$ ln -s test-tarfile{,.html}    # open with a browser
 ```
