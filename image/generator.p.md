@@ -26,9 +26,9 @@ version  : 263+2        # always "00"
 I'm using the `filename` field to store the following prefix:
 
 ```
-#!/usr/bin/env perl
-<<'peril_image_begin';
-<script type="peril">\0
+#!/usr/bin/env perl\0
+<<'_';
+<script type="peril">
 ```
 
 ### Breaking the first entry: checksum
@@ -99,7 +99,7 @@ $ ni 1p'use constant tar_header_pack =>
         }
 
         print pack"a512", tar_header(
-          "#!/usr/bin/env perl\n<<'\'_\'';\n<script type=\"peril\">",
+          "#!/usr/bin/env perl\0\n<<'\'_\'';\n<script type=\"peril\">",
           0644,
           0,
           0,
@@ -118,6 +118,13 @@ $ ni 1p'use constant tar_header_pack =>
                         . qq{<script>alert("webpage works")</script>};
         print "\0"x1024;
         ()' \>test-tarfile
+```
+
+Checking each format:
+
+```sh
+$ tar -tf test-tarfile
+peril_artifact_delete_this_directory/#!/usr/bin/env perl
 
 $ chmod +x test-tarfile
 $ ./test-tarfile
@@ -125,3 +132,7 @@ perl works!
 
 $ ln -s test-tarfile{,.html}    # open with a browser
 ```
+
+I haven't found any way to get `tar` to skip a file without bailing out, so I'm
+going to have to live with relegating the file to a directory named
+`delete_me`.
