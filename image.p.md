@@ -10,13 +10,34 @@ accessibility: you can run it with `perl`, you can extract its contents using
 `tar`, or you can open it with a browser to inspect its contents. This is
 possible because of two degrees of freedom:
 
-1. `tar` magic is stored at byte offset 257; everything before that contains
-   enough degrees of freedom to create a shebang line.
+1. `tar` magic is stored at byte offset 257; both POSIX tar and ustar formats
+   begin with a filename field, which can contain 100 bytes of arbitrary data.
 2. Web pages can start with body text and tags will still work; as a result, we
    can drop a `<script type='peril'>` early in the file and the browser will
    store+quote data from that point forwards (until it encounters `</script>`).
+   Chrome seems to have no problems with null bytes in the webpage.
 
 Note that you can't use `tar` to repack a valid Peril image; no archiver will
-produce something that will be executable as perl code.
+produce something that will be executable as perl code unless you do something
+elaborate like this:
 
-See the [image generator](image/generator.p.md) for low-level details.
+```sh
+$ mkdir -p $'#!/usr/bin/env perl\nprint "hi!\n";\n__END__\n'
+$ tar -c \#\!/*/*/* | perl
+hi!
+```
+
+Peril authors a tarfile that `tar` itself would never create (involving some
+null-byte hackery) to minimize the gnarliness of the initial artifact
+directory and guarantee correct handling of some internal fields.
+
+## Literate code format
+Peril is written in Markdown with fenced Perl snippets.
+
+## Abstraction design
+This is the first stuff happening in Peril, so we need to handle a few things:
+
+1. We need a [basic PerlIO stream wrapper object](image/perlio.p.md) so we can
+   use a standard API to access the image data.
+2. We need to implement a [hosted tar+markdown parser](image/parser.p.md) to
+   find tarfile entries and execute Perl code contained inside Markdown.
