@@ -32,7 +32,48 @@ null-byte hackery) to minimize the gnarliness of the initial artifact
 directory and guarantee correct handling of some internal fields.
 
 ## Literate code format
-Peril is written in Markdown with fenced Perl snippets.
+Peril is written in Markdown with fenced Perl snippets. At a high level, here
+are the design constraints:
+
+1. We need to start with a series of Markdown files in some vaguely semantic
+   layout and end up with a linear stream of source code.
+2. Code needs to be inside something that github/gitlab will render correctly,
+   in this case fenced blocks. We're at liberty to put arbitrary text after the
+   fence's language spec, e.g. to indicate rendering order or snippet names,
+   but this won't be displayed by any Markdown renderers.
+3. Any shell-language examples should be represented literally so it's easy to
+   copy/paste them into a terminal. That is, it's fine for the literate system
+   to support templating and nonlinear rendering, but no shell-script example
+   commands will be able to use it.
+4. We shouldn't require the user to name too many things. It should be easy to
+   write a snippet and include it later without having to invent a name for it;
+   more specifically, the difficulty should be at most proportional to the
+   nonlocality of the reference.
+
+Some of these translate into obvious implementation decisions:
+
+- The compiler follows Markdown links to satisfy (1). A document is included at
+  most once, so the first mention dictates the inclusion order. This is the
+  only case where inter-file links are allowed; you can't refer to snippets
+  outside the current Markdown file.
+
+Others aren't obvious. Getting into those...
+
+### Code block naming
+There are couple of ways this could work. One is to name snippets in the
+opening fence:
+
+> `\`\`\`pl snippet-name`
+> `some code`
+> `\`\`\``
+
+The other is to mark the code itself when it needs a name, probably using
+Perl's `#line` so any backtraces have useful information:
+
+> `\`\`\`pl`
+> `# line 1 "snippet-name"
+> `some code`
+> `\`\`\``
 
 ## Abstraction design
 This is the first stuff happening in Peril, so we need to handle a few things:
