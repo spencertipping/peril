@@ -75,10 +75,5 @@ Perl's `#line` so any backtraces have useful information:
     some code
     ```
 
-## Abstraction design
-This is the first stuff happening in Peril, so we need to handle a few things:
-
-1. We need a [basic PerlIO stream wrapper object](image/perlio.p.md) so we can
-   use a standard API to access the image data.
-2. We need to implement a [hosted tar+markdown parser](image/parser.p.md) to
-   find tarfile entries and execute Perl code contained inside Markdown.
+Of course, the compiler can insert those markers for us, going beyond logical
+names and tying them back to the original Markdown file locations.
