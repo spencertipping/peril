@@ -77,3 +77,8 @@ Perl's `#line` so any backtraces have useful information:
 
 Of course, the compiler can insert those markers for us, going beyond logical
 names and tying them back to the original Markdown file locations.
+
+Given all of this, is there any reason to name snippets at all? Perl is already
+fairly flexible about code ordering; maybe we just say that code is rendered as
+it's encountered, no indirection necessary or supported. All the compiler will
+do is add `#line` markers.
