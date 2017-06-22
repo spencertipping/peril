@@ -63,17 +63,17 @@ Others aren't obvious. Getting into those...
 There are couple of ways this could work. One is to name snippets in the
 opening fence:
 
-> `\`\`\`pl snippet-name`
-> `some code`
-> `\`\`\``
+> ```pl snippet-name
+> some code
+> ```
 
 The other is to mark the code itself when it needs a name, probably using
 Perl's `#line` so any backtraces have useful information:
 
-> `\`\`\`pl`
-> `# line 1 "snippet-name"
-> `some code`
-> `\`\`\``
+> ```pl
+> # line 1 "snippet-name"
+> some code
+> ```
 
 ## Abstraction design
 This is the first stuff happening in Peril, so we need to handle a few things:
