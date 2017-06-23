@@ -136,3 +136,65 @@ $ ln -s test-tarfile{,.html}    # open with a browser
 I haven't found any way to get `tar` to skip a file without bailing out, so I'm
 going to have to live with relegating the file to a directory named
 `delete_me`.
+
+## Generating a Peril image
+Now we've got enough background to do this properly. First things first:
+
+```pl
+package peril::image_fns;
+use constant tar_header_pack =>
+  q{ a100 a8 a8 a8 a12 a12 a8 c a100 a6 a2 a32 a32 a8 a8 a155 };
+
+sub tar_footer() {"\0" x 1024}
+
+sub octify {sprintf "\%0$_[1]o", $_[0]}
+sub tar_header
+{ my ($filename, $mode, $uid, $gid, $size, $mtime, # checksum (generated)
+      $ftype, $linkname, $magic, $ustar_version, $uname, $gname, $major,
+      $minor, $prefix) = @_;
+  $_ = octify $_, 7  for $mode, $uid, $gid, $major, $minor;
+  $_ = octify $_, 11 for $size, $mtime;
+  my $checksum_template = pack tar_header_pack,
+    my @fs =
+      ($filename, $mode, $uid, $gid, $size, $mtime, "        ", $ftype,
+       $linkname, $magic, $ustar_version, $uname, $gname,
+       $major, $minor, $prefix);
+  $fs[6] = octify unpack("%24C*", $checksum_template), 6;
+  pack tar_header_pack, @fs }
+
+sub tar_padding($) {"\0" x (512 - $_[0] & 511)}
+sub tar_encode_regular_file($$)
+{ pack "a512 a",
+       tar_header($_[0], 0644, $<, $(, length $_[1], time, 0, "", "ustar\0",
+                  "00", "", "", 0, 0, ""),
+       $_[1] . tar_padding length $_[1] }
+```
+
+### Bootstrap code
+This isn't entirely straightforward for a few reasons:
+
+1. We have to use few abstractions here, since those should be modifiable down
+   the line without changing the bootstrap logic.
+2. It should be possible to include arbitrary data in the tarstream; i.e. peril
+   can store not only its source, but data closures and other stuff that we
+   don't want to store in memory.
+
+```pl
+package peril::image_fns;
+sub tar_encode_header($)
+{ pack "a512 a",
+       tar_header("#!/usr/bin/env perl\0\n\$peril::header<<'_';\n<script type='peril'>",
+                  0644, $<, $(, length $_[0], 0, 0, "", "ustar\0", "00", "", "",
+                  0, 0, "peril_artifact_delete_this"),
+       $_[0] . tar_padding length $_[0] }
+```
+
+### Literate -> image
+Peril is built from literate source during the main build process, so let's
+implement the logic for that.
+
+```pl
+package peril::image_fns;
+
+
+```

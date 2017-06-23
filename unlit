@@ -18,7 +18,8 @@ sub parse($);
 sub parse($) {
   return () if $included{$_[0]}++;
   open my $fh, "< $_[0]" or die "open <$_[0] failed: $!";
-  map ref() ? $$_[1] =~ /^pl/ ? "#line $$_[0] \"$_[0]\"\n$$_[2]\n" : () : parse $_,
+  map ref() ? $$_[1] =~ /^pl/ ? "#line $$_[0] \"$_[0]\"\n$$_[2]\n" : ()
+            : parse s|/[^/]*$|/|r
       literate_elements_markdown join('', <$fh>), $_[0];
 }
 
