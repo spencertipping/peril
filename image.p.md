@@ -41,6 +41,4 @@ that govern how Markdown is translated into executable code:
    trying to compile; otherwise it's ignored. For Perl, the compiler adds
    `#line` markers so backtraces refer to Markdown source locations.
 
-Files aren't randomly accessible when we're unpacking the image from its
-initial tar format, so some code execution may be delayed while we wait for an
-included markdown file to appear in the stream.
+- [Literate compiler](image/literate.p.md)
