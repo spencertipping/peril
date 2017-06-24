@@ -44,24 +44,20 @@ sub tar_footer() {"\0" x 1024}
 sub octify {sprintf "\%0$_[1]o", $_[0]}
 sub tar_header
 { my ($filename, $mode, $uid, $gid, $size, $mtime, # checksum (generated)
-      $ftype, $linkname, $magic, $ustar_version, $uname, $gname, $major,
-      $minor, $prefix) = @_;
+      $ftype, $linkname, $uname, $gname, $major, $minor, $prefix) = @_;
   $_ = octify $_, 7  for $mode, $uid, $gid, $major, $minor;
   $_ = octify $_, 11 for $size, $mtime;
   my $checksum_template = pack tar_header_pack,
     my @fs =
       ($filename, $mode, $uid, $gid, $size, $mtime, "        ", $ftype,
-       $linkname, $magic, $ustar_version, $uname, $gname,
-       $major, $minor, $prefix);
+       $linkname, $uname, $gname, $major, $minor, $prefix);
   $fs[6] = octify unpack("%24C*", $checksum_template), 6;
-  pack tar_header_pack, @fs }
+  pack "a512", pack tar_header_pack, @fs }
 
 sub tar_padding($) {"\0" x (-$_[0] & 511)}
 sub tar_encode_regular_file($$)
-{ pack "a512 a",
-       tar_header($_[0], 0644, $<, $(, length $_[1], time, 0, "", "ustar\0",
-                  "00", "", "", 0, 0, ""),
-       $_[1] . tar_padding length $_[1] }
+{ tar_header($_[0], 0644, $<, $(, length $_[1], time, 0, "", "", "", 0, 0, "")
+  . $_[1] . tar_padding length $_[1] }
 ```
 
 ### Bootstrap code
@@ -91,12 +87,12 @@ use constant tar_header_code =>
   "#!/usr/bin/env perl\0\n<<'_';\n<script type='peril' id='boot'>";
 
 sub tar_encode_header($)
-{ pack "a512 a",
-       tar_header(tar_header_code, 0644, $<, $(, length $_[0], 0, 0, "",
-                  "ustar\0", "00", "", "", 0, 0, "peril_artifact_delete_this"),
-       $_[0] . tar_padding length $_[0] }
+{ tar_header(tar_header_code, 0644, $<, $(, length $_[0], 0, 0, "", "", "",
+             0, 0, "peril_artifact_delete_this")
+  . $_[0] . tar_padding length $_[0] }
 
 sub tar_encode_bootstrap() {tar_encode_header <<'boot_'}
+
 _
 ```
 
