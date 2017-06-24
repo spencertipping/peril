@@ -2,25 +2,21 @@
 use strict;
 use warnings;
 
-sub literate_elements_markdown($$) {
-  my ($file, @lines) = ($_[1], "", split /\n/, $_[0]);
+sub literate_elements_markdown($$)
+{ my ($file, @lines) = ($_[0], "", split /\n/, $_[1]);
   my @toggles        = (0, grep $lines[$_] =~ /^\s*\`\`\`/, 1..$#lines);
   (map((join("\n", @lines[$toggles[$_-2]..$toggles[$_-1]]) =~ /\]\(([^)]+\.p\.md)\)/g,
         [$toggles[$_-1] + 1,
          $lines[$toggles[$_-1]] =~ /^\s*\`\`\`(.*)$/,
          join "\n", @lines[$toggles[$_-1]+1..$toggles[$_]-1]]),
        grep !($_ & 1), 1..$#toggles),
-   join("\n", @lines[$toggles[-1]..$#lines]) =~ /\]\(([^)]+\.p\.md)\)/g);
-}
+   join("\n", @lines[$toggles[-1]..$#lines]) =~ /\]\(([^)]+\.p\.md)\)/g) }
 
-our %included;
 sub parse($);
-sub parse($) {
-  return () if $included{$_[0]}++;
-  open my $fh, "< $_[0]" or die "open <$_[0] failed: $!";
+sub parse($)
+{ open my $fh, "< $_[0]" or die "open <$_[0] failed: $!";
   map ref() ? $$_[1] =~ /^pl/ ? "#line $$_[0] \"$_[0]\"\n$$_[2]\n" : ()
-            : parse s|/[^/]*$|/|r
-      literate_elements_markdown join('', <$fh>), $_[0];
-}
+            : parse $_[0] =~ s|[^/]*$||r . $_,
+      literate_elements_markdown $_[0] => join '', <$fh> }
 
 print for map parse($_), @ARGV;

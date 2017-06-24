@@ -12,14 +12,14 @@ Also note that the link parser only returns links that point to things with a
 `.p.md` suffix, and doesn't parse parentheses within the link ref.
 
 ```pl
-sub literate_elements_markdown($$) {
-  my ($file, @lines) = ($_[1], "", split /\n/, $_[0]);
+sub resolve_path($) { my $p = shift; 1 while $p =~ s|[^/]+/\.\.||; $p }
+sub literate_elements_markdown($$)
+{ my ($file, @lines) = ($_[0], "", split /\n/, $_[1]);
   my @toggles        = (0, grep $lines[$_] =~ /^\s*\`\`\`/, 1..$#lines);
   (map((join("\n", @lines[$toggles[$_-2]..$toggles[$_-1]]) =~ /\]\(([^)]+\.p\.md)\)/g,
         [$toggles[$_-1] + 1,
          $lines[$toggles[$_-1]] =~ /^\s*\`\`\`(.*)$/,
          join "\n", @lines[$toggles[$_-1]+1..$toggles[$_]-1]]),
        grep !($_ & 1), 1..$#toggles),
-   join("\n", @lines[$toggles[-1]..$#lines]) =~ /\]\(([^)]+\.p\.md)\)/g);
-}
+   join("\n", @lines[$toggles[-1]..$#lines]) =~ /\]\(([^)]+\.p\.md)\)/g) }
 ```

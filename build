@@ -5,7 +5,12 @@ cd "$(dirname "$0")"
 
 # Stage 1: unlit markdown sources into executable, but not self-replicating,
 #          perl code.
-./unlit peril.p.md > peril.boot
+{
+  ./unlit image/bootstrap.p.md
+  echo 'bootstrap;'
+  echo __DATA__
+  tar -c peril.p.md image.p.md image
+} > peril.boot
 
 # Stage 2: invoke the boot script on itself to build the image.
 perl peril.boot --internal/build-image peril.p.md > peril

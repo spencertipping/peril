@@ -31,6 +31,8 @@ Peril authors a tarfile that `tar` itself would never create (involving some
 null-byte hackery) to minimize the gnarliness of the initial artifact
 directory and guarantee correct handling of some internal fields.
 
+See the [image generator](image/generator.p.md) for details.
+
 ## Literate code format
 Peril is written in Markdown with fenced Perl snippets. There are two rules
 that govern how Markdown is translated into executable code:
@@ -41,4 +43,4 @@ that govern how Markdown is translated into executable code:
    trying to compile; otherwise it's ignored. For Perl, the compiler adds
    `#line` markers so backtraces refer to Markdown source locations.
 
-- [Literate compiler](image/literate.p.md)
+Details and interop are discussed in the generator source linked above.
