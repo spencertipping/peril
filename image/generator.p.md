@@ -60,7 +60,7 @@ sub tar_encode_regular_file($$)
   . $_[1] . tar_padding length $_[1] }
 ```
 
-### Bootstrap code
+### Bootstrap support code
 This isn't entirely straightforward for a few reasons:
 
 1. We have to use few abstractions here, since those should be modifiable down
@@ -96,7 +96,8 @@ sub tar_encode_bootstrap() {tar_encode_header <<'boot_'}
 _
 ```
 
-The bootstrap code itself is described in more detail [here](bootstrap.p.md).
+The bootstrap code itself has its own module in
+[bootstrap.p.md](bootstrap.p.md).
 
 ```pl
 bootstrap;

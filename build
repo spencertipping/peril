@@ -24,6 +24,7 @@ fi
 
 if [[ $(sha256sum < peril) != $(./peril --internal/image | sha256sum) ]]; then
   echo "FAIL: peril image is not self-replicating" >&2
+  echo "  ... but TODO: remove mtime dependency to eliminate false positives" >&2
   exit 1
 fi
 
