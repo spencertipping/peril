@@ -26,3 +26,8 @@ if [[ $(sha256sum < peril) != $(./peril --internal/image | sha256sum) ]]; then
   echo "FAIL: peril image is not self-replicating" >&2
   exit 1
 fi
+
+if ! tar -tf peril > /dev/null; then
+  echo "FAIL: peril image cannot be extracted using tar" >&2
+  exit 1
+fi
