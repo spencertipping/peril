@@ -3,6 +3,8 @@
 - [Image representation](image.p.md)
 
 ```pl
-print encode_image('peril.p.md', %peril::boot::source);
-exit;
+sub peril::image::main {
+  print encode_image('peril.p.md', %peril::boot::source);
+  0;
+}
 ```

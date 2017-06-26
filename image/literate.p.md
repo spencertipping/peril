@@ -12,6 +12,7 @@ Also note that the link parser only returns links that point to things with a
 `.p.md` suffix, and doesn't parse parentheses within the link ref.
 
 ```pl
+package peril::literate;
 sub resolve_path($) { my $p = shift; 1 while $p =~ s|[^/]+/\.\.||; $p }
 sub literate_elements_markdown($$)
 { my ($file, @lines) = ($_[0], "", split /\n/, $_[1]);

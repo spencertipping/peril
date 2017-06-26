@@ -11,7 +11,6 @@ We can make a few simplifying assumptions:
 early.
 
 ```pl
-package peril::boot;
 use strict;
 use warnings;
 use 5.008;
@@ -19,35 +18,18 @@ use 5.008;
 
 The bootstrap logic includes the [literate Markdown compiler](literate.p.md).
 
-We also maintain a bit of state about the image we're booting from. This is
-used later on, mostly when we generate derivatives.
-
-```pl
-our %source;
-our %parsed;
-our %unresolved_links;
-```
-
 ## Literate compiler/dependency graph
 We parse incrementally as we decode stuff, tracking unresolved dependencies as
 we go. Once we have a full graph we join the code into a big string and
 evaluate it.
 
 ```pl
-sub compile_literate_source($);
-sub compile_literate_source($)
-{ local $_; map ref() ? $$_[1] =~ /^pl/ ? "#line $$_[0] \"$_[0]\"\n$$_[2]\n" : ()
-                      : compile_literate_source $_, @{$parsed{$_[0]}} }
-
-sub literate_parse($)
-{ (my $path = $_[0]) =~ s|[^/]*$||;
-  $parsed{$_[0]} = [my @p = map ref() ? $_ : resolve_path "$path$_",
-                            literate_elements_markdown $_[0] => $source{$_[0]}];
-  ++$unresolved_links{$_} for grep !ref() && !exists $parsed{$_}, @p;
-  delete $unresolved_links{$_[0]};
-  keys %unresolved_links
-     ? undef
-     : join '', compile_literate_source 'peril.p.md' }
+package peril::boot_fns;
+sub compile_literate_source($\%);
+sub compile_literate_source($\%)
+{ my ($k, $parsed) = @_;
+  local $_; map ref() ? $$_[1] =~ /^pl/ ? "#line $$_[0] \"$k\"\n$$_[2]\n" : ()
+                      : compile_literate_source($_, %$parsed), @{$$parsed{$k}} }
 ```
 
 ## Tar extractor
@@ -59,8 +41,24 @@ Then we enter the main decoding loop, collecting successive file entries and
 updating the parsed literate state.
 
 ```pl
+package peril::boot;
+
+sub literate_parse($$\%)
+{ my ($boot, $key, $unresolved_links) = @_;
+  (my $path = $key) =~ s|[^/]*$||;
+  $$boot{parsed}{$key}
+    = [my @p = map ref() ? $_ : peril::literate::resolve_path "$path$_",
+               peril::literate::literate_elements_markdown $key => $$boot{source}{$key}];
+  ++$$unresolved_links{$_} for grep !ref() && !exists $$boot{parsed}{$_}, @p;
+  delete $$unresolved_links{$key};
+  keys %$unresolved_links
+     ? undef
+     : join '', peril::boot_fns::compile_literate_source 'peril.p.md', %{$$boot{parsed}} }
+
 sub bootstrap()
-{ my $header = '';
+{ my %unresolved_links;
+  my $boot   = bless {source => {}, parsed => {}}, 'peril::image';
+  my $header = '';
   1 while read DATA, $header, 512 - length $header, length $header;
   $header =~ s/^\0*([^\0])/$1/;
 
@@ -68,12 +66,17 @@ sub bootstrap()
   { 1 while read DATA, $header, 512 - length $header, length $header;
     my ($name, $length) = unpack 'Z100 x24 a12', $header;
     $length = oct $length;
-    $source{$name} = '';
-    1 while read DATA, $source{$name}, $length - length $source{$name},
-                 length $source{$name};
+    $$boot{source}{$name} = '';
+    1 while read DATA, $$boot{source}{$name},
+                 $length - length $$boot{source}{$name},
+                 length $$boot{source}{$name};
 
     # Parse the new entry, compile the full image if we have enough 
-    eval, die $@ if defined($_ = literate_parse $name);
+    if (defined($header = literate_parse $boot, $name, %unresolved_links)) {
+      $boot->boot_code($header);
+      eval $header; die $@ if $@;
+      exit $boot->main(@ARGV);
+    }
 
     # Read+discard the rest of the 512-byte block
     $header = ''; 1 while read DATA, $header, (-$length & 511) - length $header;
