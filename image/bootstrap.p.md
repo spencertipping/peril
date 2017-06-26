@@ -16,7 +16,24 @@ use warnings;
 use 5.008;
 ```
 
-The bootstrap logic includes the [literate Markdown compiler](literate.p.md).
+The bootstrap logic depends on the [literate Markdown compiler](literate.p.md).
+
+## Boot-related image state
+We'll define more about images later on, but initially we need to maintain
+enough state to incrementally load literate files and construct the Perl
+source. This involves three hashes:
+
+- `%source`: maps filenames to the original markdown contents
+- `%parsed`: maps filenames to the output of `literate_markdown_elements`
+- `%unresolved_links`: a set of filenames that have been linked to but haven't
+  been seen yet (we don't have a full image until this set is empty)
+
+This state can be modified and extended at runtime.
+
+```pl
+package peril::image;
+sub new { bless {source => {}, parsed => {}, unresolved_links => {}}, shift }
+```
 
 ## Literate compiler/dependency graph
 We parse incrementally as we decode stuff, tracking unresolved dependencies as
@@ -41,8 +58,6 @@ Then we enter the main decoding loop, collecting successive file entries and
 updating the parsed literate state.
 
 ```pl
-package peril::boot;
-
 sub literate_parse($$\%)
 { my ($boot, $key, $unresolved_links) = @_;
   (my $path = $key) =~ s|[^/]*$||;
@@ -53,11 +68,10 @@ sub literate_parse($$\%)
   delete $$unresolved_links{$key};
   keys %$unresolved_links
      ? undef
-     : join '', peril::boot_fns::compile_literate_source 'peril.p.md', %{$$boot{parsed}} }
+     : join '', compile_literate_source 'peril.p.md', %{$$boot{parsed}} }
 
 sub bootstrap()
-{ my %unresolved_links;
-  my $boot   = bless {source => {}, parsed => {}}, 'peril::image';
+{ my $image  = peril::image->new;
   my $header = '';
   1 while read DATA, $header, 512 - length $header, length $header;
   $header =~ s/^\0*([^\0])/$1/;
@@ -66,16 +80,15 @@ sub bootstrap()
   { 1 while read DATA, $header, 512 - length $header, length $header;
     my ($name, $length) = unpack 'Z100 x24 a12', $header;
     $length = oct $length;
-    $$boot{source}{$name} = '';
-    1 while read DATA, $$boot{source}{$name},
-                 $length - length $$boot{source}{$name},
-                 length $$boot{source}{$name};
+    my $source = '';
+    1 while read DATA, $source, $length - length $source, length $source;
+
+    if ($image->add($name, $source)->is_complete) {
+      $image->eval($header)->main(@ARGV);
+    }
 
     # Parse the new entry, compile the full image if we have enough 
-    if (defined($header = literate_parse $boot, $name, %unresolved_links)) {
-      $boot->boot_code($header);
-      eval $header; die $@ if $@;
-      exit $boot->main(@ARGV);
+    if (defined($header = literate_parse $image, $name)) {
     }
 
     # Read+discard the rest of the 512-byte block
