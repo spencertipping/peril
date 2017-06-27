@@ -43,3 +43,23 @@ There are a few things worth mentioning:
    be slightly longer than the sum of fenced regions.
 4. Peril supports some extensions to Markdown; these are rendered as Markdown
    comments, which are named references that go nowhere.
+
+### Implementation
+We need to bootstrap the image at this point -- and part of that involves
+specifying how the bootstrapping process works. Peril is stored as an
+executable perl+tar+HTML file, which is possible because it uses degrees of
+freedom in the tar format to interleave tar and other data. Specifically, the
+first few bytes look like this:
+
+```
+#!/usr/bin/env perl\0
+<<'_';
+<script type='peril' id='boot'>
+```
+
+`tar` will interpret this as a filename and stop at the first null byte; perl
+will interpret this as executable code and quote+discard the tar header, and
+browsers will interpret everything until `<script>` as body text and quote the
+contents of `<script>` verbatim (including null bytes).
+
+

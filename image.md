@@ -11,7 +11,7 @@ can maintain multiple images in memory and use different formats to encode
 them; most remotes, for instance, use precompiled code so we don't have to ship
 the Markdown docs.
 
-```pl
+```perl
 package peril::image;
 ```
 
