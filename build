@@ -9,11 +9,11 @@ cd "$(dirname "$0")"
   ./unlit image/bootstrap.p.md
   echo 'bootstrap;'
   echo __DATA__
-  tar -c peril.p.md image.p.md image
+  tar -c peril.md image.md image
 } > peril.boot
 
 # Stage 2: invoke the boot script on itself to build the image.
-perl peril.boot --internal/build-image peril.p.md > peril
+perl peril.boot --internal/build-image peril.md > peril
 chmod 755 peril
 
 # Stage 3: ask peril for its own image to make sure it lines up.
