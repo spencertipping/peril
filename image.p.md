@@ -4,7 +4,31 @@ filesystem. This makes it possible for you to edit a running instance and
 propagate your changes through the RMI fabric. It also makes it possible to
 edit Peril within itself, possibly collaboratively.
 
-## Internal storage format
+Structurally speaking, an image is an in-memory snapshot of Peril's internal
+filesystem that may or may not have been committed to a perl runtime. The
+bootstrap process loads the "self" image from a tarfile and commits it, but you
+can maintain multiple images in memory and use different formats to encode
+them; most remotes, for instance, use precompiled code so we don't have to ship
+the Markdown docs.
+
+```pl
+package peril::image;
+```
+
+## State
+An image is defined by the following attributes:
+
+- `%fs`: a mapping from logical filename (e.g. `/peril/image.p.md`) to the
+  verbatim contents of the file
+- `$root`: the filename of the literate source file to start with when
+  compiling (the main image uses `/peril/peril.p.md`)
+
+Nothing about an image's existence implies that it's been loaded into a perl
+runtime; that happens automatically when you _boot_ one, but not when you're
+working with one in memory.
+
+## Serialization
+### Full archive
 Because Peril behaves like a data container, its format is designed to maximize
 accessibility: you can run it with `perl`, you can extract its contents using
 `tar`, or you can open it with a browser to inspect its contents. This is
