@@ -43,16 +43,25 @@ use warnings;
 use 5.008;
 ```
 
-Now we need logic to parse and compile everything after `__DATA__`.
+Now we need logic to parse and compile everything after `__DATA__`. To do that,
+let's include some stuff from the standard library:
 
-There are three ways we can go here, and I'm not sure which one I want yet.
+- [IO stream](io/io.md)
+- [Tarfile decoder](io/tar.md)
+- [Literate compiler](io/literate.md)
+- [Image](image/self.md)
 
-1. We can include the libraries for the image object, basic IO, literate
-   compiler, and tarfile decoder, and write a little bit of logic to wrap it
-   all together.
-2. We can write a custom minimal thing that sets up the objects per spec
-   somehow (duplicating logic but not strictly code; smaller result than option
-   (1)).
-3. We can write the IO/parsing/etc stuff using a codegen pattern and include
-   the compiled result, probably the best of both worlds but at the cost of
-   some added complexity.
+With these things included, the logic here is now quite straightforward. The
+only remotely interesting thing happening here is that we need to seek to the
+first tarfile entry since we don't know that `__DATA__` immediately precedes
+it. (We do, however, know that it's followed by null bytes, which makes this
+easy.)
+
+```perl
+package peril;
+sub bootstrap($)
+{ ${my $data_io = peril::io->buffered_fh(shift)->buffer_expand_to(512)} =~ s/^\0+//;
+  my $self = peril::image->new;
+  my $tar  = $data_io->tar;
+  
+```
