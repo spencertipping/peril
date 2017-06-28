@@ -45,4 +45,14 @@ use 5.008;
 
 Now we need logic to parse and compile everything after `__DATA__`.
 
-**TODO:** codegen?
+There are three ways we can go here, and I'm not sure which one I want yet.
+
+1. We can include the libraries for the image object, basic IO, literate
+   compiler, and tarfile decoder, and write a little bit of logic to wrap it
+   all together.
+2. We can write a custom minimal thing that sets up the objects per spec
+   somehow (duplicating logic but not strictly code; smaller result than option
+   (1)).
+3. We can write the IO/parsing/etc stuff using a codegen pattern and include
+   the compiled result, probably the best of both worlds but at the cost of
+   some added complexity.
