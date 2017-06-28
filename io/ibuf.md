@@ -1,30 +1,24 @@
-# IO stream
-Low-level stream support for Perl filehandles. The big feature here is
-arbitrary-pushback buffering, which makes it possible to do things like "seek
-to but don't consume this byte pattern."
+# Buffered input stream
+Wraps an input stream of some kind with a mutable in-memory buffer. This class
+is reasonably quick for small buffered reads and it lets you access the buffer
+directly.
 
 ```perl
-package peril::io;
+package peril::ibuf;
 use bytes;
 use overload qw( ${} buffer_ref );
 sub new
-{ my ($class, $fh) = @_;
-  bless {fh          => $fh,
+{ my ($class, $input) = @_;
+  bless {input       => $input,
          read_buffer => '',
          read_offset => 0,    # index of first valid buffer byte
          error       => 0}, $class }
 ```
 
 ## Basic reads
-At a high level:
-
-- `read_into($buf, $length, $offset)`: just like Perl's `read()`, but if
-  there's buffered data we read that first. We also read only buffered data or
-  file data; no mixed reads will happen here.
-- `read_into_exactly($buf, $length, $offset)`: calls `read_into()` until EOF,
-  error, or we've read `$length` in total.
-- `read($length)`: `read_into_exactly` against a temporary buffer, then return
-  that buffer.
+`read_into($buf, $length, $offset)` is just like Perl's `read()`, but if
+there's buffered data we read that first. We also read only buffered data or
+file data; no mixed reads will happen here.
 
 The buffer is resized somewhat lazily: we only copy memory if we've consumed
 half or more of what we're storing. This means small reads against a large
@@ -32,6 +26,7 @@ buffer aren't a problem; most of them just involve incrementing the buffer
 offset.
 
 ```perl
+sub allocate_read_buffer { "\0" x $_[1] }
 sub compact_buffer
 { my ($self) = @_;
   return $self unless $$self{read_offset};
@@ -50,22 +45,9 @@ sub read_into
     $self->compact_buffer if ($$self{read_offset} += $length) >= length $$self{read_buffer} >> 1;
     $length }
   else
-  { my $n = read $$self{fh}, $_[1], $length, $offset;
+  { my $n = $$self{input}->read($_[1], $length, $offset);
     $$self{error} = $! unless defined $n;
     $n } }
-
-sub read_into_exactly
-{ my ($self, undef, $length, $offset) = @_;
-  $offset ||= 0;
-  my $n = 0;
-  $n += $r while $r = $self->read_into($_[1], $length - $n, $offset + $n);
-  $n }
-
-sub read
-{ my ($self, $n) = @_;
-  my $buf = "\0" x $n;
-  $self->read_into_exactly($buf, $n);
-  $buf }
 ```
 
 ## Buffer functions
