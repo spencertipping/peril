@@ -11,8 +11,10 @@ will do this automatically.
    blocks are marked with `do_` (otherwise it's a syntax error in perl)
 2. Arrays and hashes must be used as scalar refs, not as flat values
 3. Values tend to be type-hinted with `pack` templates
+4. Things involving regexes tend not to work; if `$x` is a runtime value, you
+   can't say `$x =~ s/foo/bar/g` for example.
 
-For example, here's part of murmurhash3 (32-bit) in `gen`:
+For example, here's murmurhash3 (32-bit) in `gen`:
 
 ```
 use constant murmur_c1 => 0xcc9e2d51;
@@ -20,13 +22,18 @@ use constant murmur_c2 => 0x1b873593;
 use constant murmur_n  => 0xe6546b64;
 
 my $murmurhash3_32 = gen {
-  sig 'pL' => 'L', my ($str, $h);
-  for_(unpack_ 'L*', $str) do_ {
+  sig 'PL' => 'L', my ($str, $h);
+  for_ unpack_('L*', $str), do_ {
     $_ *= murmur_c1;
     $h ^= ($_ << 15 | $_ >> 17 & 0x7fff) * murmur_c2 & 0xffffffff;
     $h  = ($h << 13 | $h >> 19 & 0x1fff) * 5 + murmur_n;
-  }
-  # footer calculations...
+  };
+  my $r = unpack_ 'V', substr_($str, ~3 & length_ $str) . "\0\0\0\0";
+  $r *= murmur_c1;
+  $h ^= ($r << 15 | $r >> 17 & 0x7fff) * murmur_c2 & 0xffffffff ^ length_ $str;
+  $h &= 0xffffffff;
+  $h  = ($h ^ $h >> 16) * 0x85ebca6b & 0xffffffff;
+  $h  = ($h ^ $h >> 13) * 0xc2b2ae35 & 0xffffffff;
   return_ $h ^ $h >> 16;      # as in perl, return_ is optional
 };
 ```
@@ -38,77 +45,52 @@ layer:
 
 ```
 gen {
+  sig l => "l", my $x;
   if ($compile_this_way) {
-    return_ $_[0] + 1;
+    return_ $x + 1;
   } else {
-    return_ $_[0] - 1;
+    return_ $x - 1;
   }
 };
 ```
 
 `gen` will only see one of the two branches depending on the value of
-`$compile_this_way`.
+`$compile_this_way`. `gen` will figure out if you use a runtime quantity with a
+real Perl conditional and will complain accordingly, for example:
 
-## Gen context
-The `gen()` function sets up some dynamically-scoped context required for graph
-construction. In particular, it manages variables that become node IDs and
-implicitly manage sequencing.
-
-```perl
-package peril::gen;
-
-# TODO: fix this; we want nestable blocks to manage side-effect tracking
-our $gen_id      = 0;     # nonzero if inside a gen{} block
-our $next_gen_id = 1;
-
-sub enter_block
-{ $gen_id and die "peril::gen: already inside a gen{} block";
-  $gen_id = $next_gen_id }
-
-sub exit_block
-{ $gen_id or die "peril::gen: not inside a gen{} block (but tried to exit)";
-  $next_gen_id = $gen_id;
-  $gen_id      = 0 }
-
-sub id
-{ $gen_id or die "peril::gen: tried to construct a node outside of a gen{} block";
-  $gen_id++ }
-
-sub peril::gen(&)
-{ peril::gen::enter_block;
-  my $r = &{$_[0]};
-  peril::gen::exit_block;
-  $r }
+```
+gen {
+  sig L => 'L', my ($x);
+  if ($x) {           # this line dies because $x belongs to runtime context
+    print_ "hi!\n";   # ... (need to use if_ instead)
+  }
+  if_ $x, do_ {       # this will work
+    print_ "hi!\n";
+  };
+};
 ```
 
-## Gen values
-Most of the notational magic happens inside `peril::gen::v`, which overloads
-every operator and builds a reverse-linked graph (that is, `3 + 4` would be
-encoded as `"+" -> (3, 4)`, but the `3` and `4` nodes wouldn't link to `+`).
+## `gen{}` blocks
+`gen{}` creates a function and specifies how its arguments and return value(s)
+should be encoded. It may be translated into another language like C,
+Javascript, or Java, and calls to it might be remote -- either to another
+process on the same machine or to a process on a different machine. In other
+words, `gen{}` fully specifies both language and locality constraints for a
+piece of code.
 
-Gen values detect when you're using them in (most) non-gen-aware contexts and
-throw errors. This is an easy mistake to make: `sin($gen_value)` is wrong, but
-`sin_($gen_value)` works.
+### Signatures
+Every `gen{}` block will have a `sig` element that defines input and output
+argument encodings in terms of `pack` templates. These templates don't work
+quite the way they do in Perl; specifically:
 
-```perl
-package peril::gen::v;
-use overload qw( bool gen_bool    fallback 0
-                 0+   gen_number  nomethod gen_op
-                 ""   gen_string
-                 sin  gen_number  cos   gen_number
-                 exp  gen_number  abs   gen_number
-                 log  gen_number  int   gen_number
-                 sqrt gen_number  atan2 gen_number );
+1. Repetition must be length-prefixed and will produce an array _reference_,
+   not a list of values. That is, `N/s` will produce a single input argument.
+   `s*` isn't allowed.
+2. `P` is interpreted as "pass by reference", which implicitly means that the
+   caller and callee must share a runtime. The thing you're passing by
+   reference doesn't need to be a string; it can be any value. Unlike in Perl,
+   `P` becomes a no-op in the compiled code.
 
-sub id {shift->{id}}
-
-sub gen_bool   { die "peril::gen: cannot coerce abstract value to boolean "
-                   . "(this is caused by trying to use a Perl conditional "
-                   . "like &&, ||, if, or ?: against a gen node object)" }
-sub gen_number { die "peril::gen: cannot coerce abstract value to number" }
-sub gen_string { die "peril::gen: cannot coerce abstract value to string" }
-
-sub gen_op
-{ my ($self, $rhs, $swap, $op) = @_;
-  peril::gen::v->op($op, $swap ? $rhs : $self, $swap ? $self : $rhs) }
-```
+`sig` will give you initialized arguments if you specify them after the
+arg/return type specs: `sig "ll" => "l", my ($x, $y);` will set `$x` and `$y`
+to runtime refs to the input argument values.
