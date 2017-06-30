@@ -56,6 +56,8 @@ implicitly manage sequencing.
 
 ```perl
 package peril::gen;
+
+# TODO: fix this; we want nestable blocks to manage side-effect tracking
 our $gen_id      = 0;     # nonzero if inside a gen{} block
 our $next_gen_id = 1;
 
