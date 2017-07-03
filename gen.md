@@ -85,7 +85,7 @@ quite the way they do in Perl; specifically:
 
 1. Repetition must be length-prefixed and will produce an array _reference_,
    not a list of values. That is, `N/s` will produce a single input argument.
-   `s*` isn't allowed.
+   `s*` isn't allowed, nor are variadic functions in general.
 2. `P` is interpreted as "pass by reference", which implicitly means that the
    caller and callee must share a runtime. The thing you're passing by
    reference doesn't need to be a string; it can be any value. Unlike in Perl,
