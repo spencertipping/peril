@@ -156,4 +156,41 @@ Now the inner block signature becomes `("P", "")` because the block refers to
    specialize to `("La", "")`, which is a quantified dependency and can be
    moved.
 
+## Alternative block syntaxes
+Nodes are compile-time objects with methods you can call to write code. For
+example, these are all equivalent conditionals:
 
+```
+gen {
+  if_ $cond, do_ {print_ "hi!\n"};
+  if_($cond)->do(print_ "hi!\n");       # NB: no underscore on do()
+  if_($cond)->do(sub {print_ "hi!\n"}); # ditto
+  print_("hi!\n")->if($cond);           # ditto for if()
+}
+```
+
+Node methods don't end in `_` because the method call itself happens at
+compile-time. These methods happen to behave like macros in that they translate
+to declarative control flow modifications, but that isn't always the case; for
+example, you could just as easily have compile-time assertions:
+
+```
+gen {
+  $x->die_if_typed_as('L');             # you'd have to write this method
+}
+```
+
+## Functions and interop
+Blocks and values can be called as functions, which means different things
+inside and outside of `gen{}`. Inside `gen{}`, calling a value will generate
+and return a `function_call` value node. Outside `gen{}`, calling a value will
+compile it and evaluate it on the given set of arguments.
+
+```
+my $g = gen { sig L => 'L', my $x; $x + 1 };
+my $f = gen {
+  sig L => 'L', my $y;
+  &$g($y);                              # generates a function call
+};
+my $x = &$f(5);                         # compiles $f, returns 6
+```
