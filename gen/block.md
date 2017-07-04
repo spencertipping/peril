@@ -40,14 +40,8 @@ sub gen_current_block
 
 sub gen(&)
 { die "cannot gen{} from inside another gen{} context" if @gen_block_scope;
-  push @gen_block_scope, my $b = peril::gen::block->new;
-  $b->init_from_perl(shift);
-  pop @gen_block_scope }
+  peril::gen::block->from_fn(shift) }
 ```
-
-It's important that `$b` exist as the current block _before_ the block is
-evaluated; otherwise sub-values won't be able to register themselves with it.
-More about this below and in [the `peril::gen::v` source](v.md#).
 
 Decorators like `sig` are implemented as method calls against the current
 block:
@@ -57,6 +51,7 @@ package peril::gen::block;
 sub defdecorator($)
 { no strict 'refs';
   my ($name) = @_;
+  die "$name() is valid only inside gen{}" unless @peril::gen_block_scope;
   ${"peril::$name"} = sub { shift->$name(@_) } }
 
 BEGIN { defdecorator 'sig' }
@@ -194,3 +189,14 @@ my $f = gen {
 };
 my $x = &$f(5);                         # compiles $f, returns 6
 ```
+
+(Note that a generated function call doesn't have to correspond to a function
+call in the target language; the above would likely be inlined directly into
+its calling context.)
+
+`gen{}` scoping is used to differentiate between these cases for two reasons:
+
+1. Calling a constant or other silently-promotable value would be ambiguous
+2. `gen{}`-compiled functions should be able to operate on `gen` nodes
+
+(2) is what makes it possible for compiled code to be self-hosting.
