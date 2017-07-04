@@ -1,32 +1,159 @@
 # `gen` blocks
 This is the entry point for `gen{}`, which uses a lot of dynamically-scoped
-state under the hood. The first thing we need is a global to track the current
-block; any abstract values will add themselves to that block's owned-list when
-allocated.
+state under the hood. Here's roughly what's going on.
+
+- [`peril::gen`](../gen.md#) is the base class for AST nodes. Abstract values
+  and blocks are both instances of this.
+- `peril::gen::block` is a block object, which encodes side-effects and node
+  creation ordering. Blocks have defined input/output parameters, though
+  sometimes those parameters are inferred.
+- [`peril::gen::v`](v.md#) is an object corresponding to an expression that
+  will end up producing a runtime value.
+
+Going back to the murmurhash example:
+
+```
+my $murmurhash3_32 = gen {              # peril::gen::block
+  sig PL => 'L', my ($str, $h);         # $str and $h are peril::gen::v
+  for_ unpack_('L*', $str), do_ {       # both happening here
+    $_ *= murmur_c1;                    # $_ is a peril::gen::v
+    ...
+  };
+  my $r = unpack_ V =>                  # unpack_ is polymorphic
+    substr_($str, ~3 & length_ $str)    # ...as are substr_ and length_
+      . "\0\0\0\0";
+  ...
+  $h ^ $h >> 16;                        # implicit return used as block return
+};
+```
+
+`gen(&)` creates and ultimately returns a `peril::gen::block` object whose type
+signature is `PL => L`. Here are the mechanics:
 
 ```perl
-package peril::gen::block;
-our @scope;
-sub require_scope { die "peril::gen: not inside a gen{} block" unless @scope }
-sub enter_block   { push @scope, peril::gen::block->new; current }
-sub exit_block    { require_scope; pop @scope }
-sub current       { require_scope; $scope[-1] }
-
 package peril;
+our @gen_block_scope;
+
+sub gen_current_block
+{ die "not inside a gen{} block" unless @gen_block_scope;
+  $gen_block_scope[-1] }
+
 sub gen(&)
-{ peril::gen::block::enter_block;
-  my $return = shift->();
-  peril::gen::block::exit_block->returning($return) }
+{ die "cannot gen{} from inside another gen{} context" if @gen_block_scope;
+  push @gen_block_scope, my $b = peril::gen::block->new;
+  $b->init_from_perl(shift);
+  pop @gen_block_scope }
 ```
 
-## Block objects
-A block tracks every abstract expression evaluated within it, and in particular
-the evaluation order in which they were encountered. It inherits this ordering
-from Perl.
+It's important that `$b` exist as the current block _before_ the block is
+evaluated; otherwise sub-values won't be able to register themselves with it.
+More about this below and in [the `peril::gen::v` source](v.md#).
+
+Decorators like `sig` are implemented as method calls against the current
+block:
 
 ```perl
 package peril::gen::block;
-push our @ISA, 'peril::gen';
-sub new { current->own(my $self = bless { vs => [] }, $_[0]); $self }
-sub own { my $self = shift; push @{$$self{vs}}, @_; $self }
+sub defdecorator($)
+{ no strict 'refs';
+  my ($name) = @_;
+  ${"peril::$name"} = sub { shift->$name(@_) } }
+
+BEGIN { defdecorator 'sig' }
 ```
+
+## Side effects and value tracking
+Every new value, whether a block or an expression, registers itself with
+whichever block is current. For example, here's a simple function:
+
+```
+my $plus_one = gen {
+  sig L => 'L', my $x;
+  print_ "entering the function\n";
+  print_ "adding one to $x\n";          # (interesting magic happening here btw)
+  $x + 1;
+};
+```
+
+`sig()` grabs a reference to `$x`, which the block will of course know it owns.
+But the first `print_` isn't obviously tied to `$x`, nor is it related to the
+block's Perl return value. The block is made aware of it because `print_`
+creates a function-call `peril::gen::v` node that immediately adds itself to
+the block -- the block ends up with these nodes in this order:
+
+1. `$x` (from `sig`)
+2. `function_call(print_, "entering the function\n")`
+3. `str("adding one to ", $x, "\n")`
+4. `function_call(print_, str(...))`
+5. `operator('+', $x, 1)` -- the return value of the block
+
+At this point we know enough to do some interesting stuff, including accounting
+for each node. For example, because a traversal of `operator('+', $x, 1)`
+doesn't touch either `print_` node, we know that `print_` is being used as a
+side effect. If, on the other hand, we had written something like this:
+
+```
+my $plus_one = gen {
+  sig L => 'L', my $x;
+  $x * 2;                               # side effect (but not really)
+  $x + 1;
+};
+```
+
+`$x * 2` isn't a real side effect if `$x` is a regular number, so the
+surrounding block would error out because no sane person would write code like
+this (meaning that there's some kind of misunderstanding about what's going
+on).
+
+## Type signatures and metadata
+Blocks are self-contained units of code, which means they can be compiled
+independently. For example:
+
+```
+gen {
+  sig P => 'L', my ($x);                # P: $x is a reference
+  my $foo = substr_($x, 10);            # ...to a string, apparently
+  for_ _(1..10), do_ {                  # do_{} creates a sub-block
+    print_ "$_\n";
+  };
+}
+```
+
+The `do_{}` block has an inferred type signature of `("L", "")`: it accepts a
+long int and returns nothing. Because it calls `print_`, which is a function
+whose side-effect flag is set, the block is also marked as having a side
+effect.
+
+Here's where this gets interesting. The block doesn't refer to any `P`-typed
+values, so there's no reason it needs to be compiled into the same language as
+the surrounding `for_` loop. So from a compilation perspective, `print_` could
+be happening in a C subprocess while the surrounding context is fixed by the
+`P` type signature of its argument. `print_` could also be happening on an
+entirely different machine.
+
+Inferred type signatures reflect any referenced values within a block:
+
+```
+gen {
+  sig P => 'L', my ($x);                # P: $x is a reference
+  for_ _(1..10), do_ {
+    print_ "$x\n";                      # now $x is the block arg
+  };
+}
+```
+
+Now the inner block signature becomes `("P", "")` because the block refers to
+`$x` -- so we probably can't compile the inner block independently. I say
+"probably" because there are two exceptions:
+
+1. If the value for `$x` is typed as something like `L` for which references
+   are irrelevant, then the specialized signature will become `("L", "")` and
+   the block will become independent.
+2. `print_ "$x\n"` doesn't depend on the loop variable, so `print_` is the only
+   IO-serializing element involved here. If evaluating `"$x\n"` doesn't have
+   side effects or refer to the IO timeline, then it can be moved out of the
+   block and passed in as an argument instead; then the block signature would
+   specialize to `("La", "")`, which is a quantified dependency and can be
+   moved.
+
+

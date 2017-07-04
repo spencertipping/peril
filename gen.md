@@ -22,7 +22,7 @@ use constant murmur_c2 => 0x1b873593;
 use constant murmur_n  => 0xe6546b64;
 
 my $murmurhash3_32 = gen {
-  sig 'PL' => 'L', my ($str, $h);
+  sig PL => 'L', my ($str, $h);
   for_ unpack_('L*', $str), do_ {
     $_ *= murmur_c1;
     $h ^= ($_ << 15 | $_ >> 17 & 0x7fff) * murmur_c2 & 0xffffffff;
@@ -70,7 +70,7 @@ gen {
 };
 ```
 
-## `gen{}` blocks
+## [`gen{}` blocks](gen/block.md)
 `gen{}` creates a function and specifies how its arguments and return value(s)
 should be encoded. It may be translated into another language like C,
 Javascript, or Java, and calls to it might be remote -- either to another
