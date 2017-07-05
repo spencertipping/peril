@@ -10,11 +10,15 @@ state under the hood. Here's roughly what's going on.
 - [`peril::gen::v`](v.md#) is an object corresponding to an expression that
   will end up producing a runtime value.
 
+**TODO:** justify the distinction between `block` and `v`; how is this not
+analogous to the struct/primitive distinction, which can be resolved more
+elegantly through multimethods?
+
 Going back to the murmurhash example:
 
 ```
 my $murmurhash3_32 = gen {              # peril::gen::block
-  sig PL => 'L', my ($str, $h);         # $str and $h are peril::gen::v
+  my ($str, $h) = @_;                   # $str and $h are peril::gen::v
   for_ unpack_('L*', $str), do_ {       # both happening here
     $_ *= murmur_c1;                    # $_ is a peril::gen::v
     ...
@@ -27,8 +31,8 @@ my $murmurhash3_32 = gen {              # peril::gen::block
 };
 ```
 
-`gen(&)` creates and ultimately returns a `peril::gen::block` object whose type
-signature is `PL => L`. Here are the mechanics:
+`gen(&)` creates and ultimately returns a `peril::gen::block` object that can
+specify constraints for its input arguments. Here are the mechanics:
 
 ```perl
 package peril;
@@ -43,44 +47,29 @@ sub gen(&)
   peril::gen::block->from_fn(shift) }
 ```
 
-Decorators like `sig` are implemented as method calls against the current
-block:
-
-```perl
-package peril::gen::block;
-sub defdecorator($)
-{ no strict 'refs';
-  my ($name) = @_;
-  die "$name() is valid only inside gen{}" unless @peril::gen_block_scope;
-  ${"peril::$name"} = sub { shift->$name(@_) } }
-
-BEGIN { defdecorator 'sig' }
-```
-
 ## Side effects and value tracking
 Every new value, whether a block or an expression, registers itself with
 whichever block is current. For example, here's a simple function:
 
 ```
 my $plus_one = gen {
-  sig L => 'L', my $x;
+  my $x = shift;
   print_ "entering the function\n";
   print_ "adding one to $x\n";          # (interesting magic happening here btw)
   $x + 1;
 };
 ```
 
-`sig()` grabs a reference to `$x`, which the block will of course know it owns.
-But the first `print_` isn't obviously tied to `$x`, nor is it related to the
+The block obviously knows that it owns `$x` since it provided the value. But
+the first `print_` isn't obviously tied to `$x`, nor is it related to the
 block's Perl return value. The block is made aware of it because `print_`
 creates a function-call `peril::gen::v` node that immediately adds itself to
-the block -- the block ends up with these nodes in this order:
+whichever block is current -- so we end up with these nodes in this order:
 
-1. `$x` (from `sig`)
-2. `function_call(print_, "entering the function\n")`
-3. `str("adding one to ", $x, "\n")`
-4. `function_call(print_, str(...))`
-5. `operator('+', $x, 1)` -- the return value of the block
+1. `function_call(print_, "entering the function\n")`
+2. `str("adding one to ", $x, "\n")`
+3. `function_call(print_, str(...))`
+4. `operator('+', $x, 1)` -- the return value of the block
 
 At this point we know enough to do some interesting stuff, including accounting
 for each node. For example, because a traversal of `operator('+', $x, 1)`
@@ -89,7 +78,7 @@ side effect. If, on the other hand, we had written something like this:
 
 ```
 my $plus_one = gen {
-  sig L => 'L', my $x;
+  my $x = shift;
   $x * 2;                               # side effect (but not really)
   $x + 1;
 };
@@ -99,57 +88,6 @@ my $plus_one = gen {
 surrounding block would error out because no sane person would write code like
 this (meaning that there's some kind of misunderstanding about what's going
 on).
-
-## Type signatures and metadata
-Blocks are self-contained units of code, which means they can be compiled
-independently. For example:
-
-```
-gen {
-  sig P => 'L', my ($x);                # P: $x is a reference
-  my $foo = substr_($x, 10);            # ...to a string, apparently
-  for_ _(1..10), do_ {                  # do_{} creates a sub-block
-    print_ "$_\n";
-  };
-}
-```
-
-The `do_{}` block has an inferred type signature of `("L", "")`: it accepts a
-long int and returns nothing. Because it calls `print_`, which is a function
-whose side-effect flag is set, the block is also marked as having a side
-effect.
-
-Here's where this gets interesting. The block doesn't refer to any `P`-typed
-values, so there's no reason it needs to be compiled into the same language as
-the surrounding `for_` loop. So from a compilation perspective, `print_` could
-be happening in a C subprocess while the surrounding context is fixed by the
-`P` type signature of its argument. `print_` could also be happening on an
-entirely different machine.
-
-Inferred type signatures reflect any referenced values within a block:
-
-```
-gen {
-  sig P => 'L', my ($x);                # P: $x is a reference
-  for_ _(1..10), do_ {
-    print_ "$x\n";                      # now $x is the block arg
-  };
-}
-```
-
-Now the inner block signature becomes `("P", "")` because the block refers to
-`$x` -- so we probably can't compile the inner block independently. I say
-"probably" because there are two exceptions:
-
-1. If the value for `$x` is typed as something like `L` for which references
-   are irrelevant, then the specialized signature will become `("L", "")` and
-   the block will become independent.
-2. `print_ "$x\n"` doesn't depend on the loop variable, so `print_` is the only
-   IO-serializing element involved here. If evaluating `"$x\n"` doesn't have
-   side effects or refer to the IO timeline, then it can be moved out of the
-   block and passed in as an argument instead; then the block signature would
-   specialize to `("La", "")`, which is a quantified dependency and can be
-   moved.
 
 ## Alternative block syntaxes
 Nodes are compile-time objects with methods you can call to write code. For
@@ -182,12 +120,9 @@ and return a `function_call` value node. Outside `gen{}`, calling a value will
 compile it and evaluate it on the given set of arguments.
 
 ```
-my $g = gen { sig L => 'L', my $x; $x + 1 };
-my $f = gen {
-  sig L => 'L', my $y;
-  &$g($y);                              # generates a function call
-};
-my $x = &$f(5);                         # compiles $f, returns 6
+my $g = gen { shift + 1 };
+my $f = gen { &$g(@_) };                # generates a function call
+my $x = &$f(5);                         # compiles $f and $g, returns 6
 ```
 
 (Note that a generated function call doesn't have to correspond to a function

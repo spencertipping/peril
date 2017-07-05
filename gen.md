@@ -45,7 +45,7 @@ layer:
 
 ```
 gen {
-  sig l => "l", my $x;
+  my $x = shift;
   if ($compile_this_way) {
     return_ $x + 1;
   } else {
@@ -60,7 +60,7 @@ real Perl conditional and will complain accordingly, for example:
 
 ```
 gen {
-  sig L => 'L', my ($x);
+  my ($x) = @_;
   if ($x) {           # this line dies because $x belongs to runtime context
     print_ "hi!\n";   # ... (need to use if_ instead)
   }
@@ -69,28 +69,3 @@ gen {
   };
 };
 ```
-
-## [`gen{}` blocks](gen/block.md)
-`gen{}` creates a function and specifies how its arguments and return value(s)
-should be encoded. It may be translated into another language like C,
-Javascript, or Java, and calls to it might be remote -- either to another
-process on the same machine or to a process on a different machine. In other
-words, `gen{}` fully specifies both language and locality constraints for a
-piece of code.
-
-### Signatures
-Every `gen{}` block will have a `sig` element that defines input and output
-argument encodings in terms of `pack` templates. These templates don't work
-quite the way they do in Perl; specifically:
-
-1. Repetition must be length-prefixed and will produce an array _reference_,
-   not a list of values. That is, `N/s` will produce a single input argument.
-   `s*` isn't allowed, nor are variadic functions in general.
-2. `P` is interpreted as "pass by reference", which implicitly means that the
-   caller and callee must share a runtime. The thing you're passing by
-   reference doesn't need to be a string; it can be any value. Unlike in Perl,
-   `P` becomes a no-op in the compiled code.
-
-`sig` will give you initialized arguments if you specify them after the
-arg/return type specs: `sig "ll" => "l", my ($x, $y);` will set `$x` and `$y`
-to runtime refs to the input argument values.
