@@ -25,9 +25,13 @@ my $murmurhash3_32 = gen {
   my ($str, $h) = @_;
   for_ unpack_('L*', $str), do_ {
     $_ *= murmur_c1;
+
+    # TODO: we can't track these assignments, which throws a bit of a wrench
+    # into this stuff
     $h ^= ($_ << 15 | $_ >> 17 & 0x7fff) * murmur_c2 & 0xffffffff;
     $h  = ($h << 13 | $h >> 19 & 0x1fff) * 5 + murmur_n;
   };
+
   my $r = unpack_ 'V', substr_($str, ~3 & length_ $str) . "\0\0\0\0";
   $r *= murmur_c1;
   $h ^= ($r << 15 | $r >> 17 & 0x7fff) * murmur_c2 & 0xffffffff ^ length_ $str;
