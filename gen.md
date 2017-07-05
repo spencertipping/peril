@@ -22,12 +22,9 @@ use constant murmur_c2 => 0x1b873593;
 use constant murmur_n  => 0xe6546b64;
 
 my $murmurhash3_32 = gen {
-  my ($str, $h) = @_;
+  args my ($str, $h);
   for_ unpack_('L*', $str), do_ {
     $_ *= murmur_c1;
-
-    # TODO: we can't track these assignments, which throws a bit of a wrench
-    # into this stuff
     $h ^= ($_ << 15 | $_ >> 17 & 0x7fff) * murmur_c2 & 0xffffffff;
     $h  = ($h << 13 | $h >> 19 & 0x1fff) * 5 + murmur_n;
   };
@@ -49,7 +46,7 @@ layer:
 
 ```
 gen {
-  my $x = shift;
+  args my ($x);
   if ($compile_this_way) {
     return_ $x + 1;
   } else {
@@ -64,7 +61,7 @@ real Perl conditional and will complain accordingly, for example:
 
 ```
 gen {
-  my ($x) = @_;
+  args my ($x);
   if ($x) {           # this line dies because $x belongs to runtime context
     print_ "hi!\n";   # ... (need to use if_ instead)
   }

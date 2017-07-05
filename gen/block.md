@@ -18,7 +18,7 @@ Going back to the murmurhash example:
 
 ```
 my $murmurhash3_32 = gen {              # peril::gen::block
-  my ($str, $h) = @_;                   # $str and $h are peril::gen::v
+  args my ($str, $h);                   # $str and $h are peril::gen::v
   for_ unpack_('L*', $str), do_ {       # both happening here
     $_ *= murmur_c1;                    # $_ is a peril::gen::v
     ...
@@ -31,29 +31,13 @@ my $murmurhash3_32 = gen {              # peril::gen::block
 };
 ```
 
-`gen(&)` creates and ultimately returns a `peril::gen::block` object that can
-specify constraints for its input arguments. Here are the mechanics:
-
-```perl
-package peril;
-our @gen_block_scope;
-
-sub gen_current_block
-{ die "not inside a gen{} block" unless @gen_block_scope;
-  $gen_block_scope[-1] }
-
-sub gen(&)
-{ die "cannot gen{} from inside another gen{} context" if @gen_block_scope;
-  peril::gen::block->from_fn(shift) }
-```
-
 ## Side effects and value tracking
 Every new value, whether a block or an expression, registers itself with
 whichever block is current. For example, here's a simple function:
 
 ```
 my $plus_one = gen {
-  my $x = shift;
+  args my ($x);
   print_ "entering the function\n";
   print_ "adding one to $x\n";          # (interesting magic happening here btw)
   $x + 1;
@@ -78,7 +62,7 @@ side effect. If, on the other hand, we had written something like this:
 
 ```
 my $plus_one = gen {
-  my $x = shift;
+  args my ($x);
   $x * 2;                               # side effect (but not really)
   $x + 1;
 };
@@ -120,8 +104,8 @@ and return a `function_call` value node. Outside `gen{}`, calling a value will
 compile it and evaluate it on the given set of arguments.
 
 ```
-my $g = gen { shift + 1 };
-my $f = gen { &$g(@_) };                # generates a function call
+my $g = gen { args my $x; $x + 1 };
+my $f = gen { args my $x; &$g($x) };    # generates a function call
 my $x = &$f(5);                         # compiles $f and $g, returns 6
 ```
 
