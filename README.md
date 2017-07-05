@@ -1,4 +1,6 @@
 # Peril: Know your favorite color. Or else.
+**WARNING:** Nowhere near done yet; don't try to use this.
+
 Peril is a collaborative notebook editor and networked UNIX shell. It's
 designed to replace bash, tools like Jupyter, and various ad-hoc workflows
 involving `ssh` and `rsync`. Like all great tools, Peril was written out of
@@ -23,4 +25,4 @@ $ docker run --rm -it spencertipping/peril
 ```
 
 ## Documentation
-See the [literate source code](peril.p.md).
+See the [literate source code](peril.md).
