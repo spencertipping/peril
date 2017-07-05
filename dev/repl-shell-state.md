@@ -66,6 +66,12 @@ lifetime. Best case it would end up killing the daemon after a timeout, then
 restarting the daemon (which is potentially expensive) on demand. Or the daemon
 would just run forever.
 
+(Incidentally, the whole "`ssh` somewhere, run a long job, get disconnected"
+problem is exactly the same issue programming languages face when call frames
+are always managed on a stack: you want to capture a continuation, but your
+runtime doesn't have a way to store call frames in the heap to make this
+possible.)
+
 ## So is that why peril is a shell?
 Yep, that's the big reason. There are also some other reasons:
 
