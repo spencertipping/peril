@@ -8,28 +8,25 @@ will do this automatically.
 For example, here's murmurhash3 (32-bit) in `gen`:
 
 ```
+use peril::gen;
 use constant murmur_c1 => 0xcc9e2d51;
 use constant murmur_c2 => 0x1b873593;
 use constant murmur_n  => 0xe6546b64;
 
-my $murmurhash3_32 = gen {
+my $murmurhash3_32 = qe {
   args string => my $str,
        uint32 => my $h;
 
-  $str->unpack('L*') >> gen {
+  unpack_('L*', $str) | qe {
     $_ *= murmur_c1;
     $h ^= ($_ << 15 | $_ >> 17 & 0x7fff) * murmur_c2;
     $h  = ($h << 13 | $h >> 19 & 0x1fff) * 5 + murmur_n;
   };
 
-  my $r = ($str->substr(~3 & $str->length) . "\0\0\0\0")->unpack('V')
-        * murmur_c1;
-  $h ^= ($r << 15 | $r >> 17 & 0x7fff) * murmur_c2 ^ $str->length;
+  my $r = unpack_(V => substr($str, ~3 & length_ $str) . "\0\0\0\0") * murmur_c1;
+  $h ^= ($r << 15 | $r >> 17 & 0x7fff) * murmur_c2 ^ length_ $str;
   $h  = ($h ^ $h >> 16) * 0x85ebca6b;
   $h  = ($h ^ $h >> 13) * 0xc2b2ae35;
-  ($h ^ $h >> 16)->return;
+  return_ $h ^ $h >> 16;
 };
 ```
-
-**TODO:** Justify `gen` at all. It's a nice DSL, but why not express these
-things structurally?
