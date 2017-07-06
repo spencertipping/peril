@@ -14,8 +14,9 @@ use constant murmur_c2 => 0x1b873593;
 use constant murmur_n  => 0xe6546b64;
 
 my $murmurhash3_32 = qe {
-  args string => my $str,
-       uint32 => my $h;
+  args string => my $str,               # string names a struct...
+       uint32 => my $h;                 # ...as does uint32
+  var $h;                               # this makes $h mutable
 
   unpack_('L*', $str) | qe {
     $_ *= murmur_c1;
@@ -30,3 +31,13 @@ my $murmurhash3_32 = qe {
   return_ $h ^ $h >> 16;
 };
 ```
+
+## `qe{}` and abstract values
+`qe{}` is a mechanism to quote evaluation, similar to the way `qr//` quotes a
+regular expression. Perl evaluates the body as a regular function, but `qe{}`
+uses operator overloading and `tie()` to build a graph of value operations and
+function calls. The result is an abstract function object that can compile your
+code using a number of different backends.
+
+## Value types
+`gen` views everything in terms of structs.
