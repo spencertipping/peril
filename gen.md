@@ -14,9 +14,8 @@ use constant murmur_c2 => 0x1b873593;
 use constant murmur_n  => 0xe6546b64;
 
 my $murmurhash3_32 = qe {
-  args string => my $str,               # string names a struct...
-       uint32 => my $h;                 # ...as does uint32
-  var $h;                               # this makes $h mutable
+  my ($str, $h) = @_;                   # $str and $h are abstract values
+  var uint32 => $h;                     # set type and make $h mutable
 
   unpack_('L*', $str) | qe {
     $_ *= murmur_c1;
