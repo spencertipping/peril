@@ -66,7 +66,8 @@ Types are fully erased during compilation.
 
 ### Open questions
 1. How are structs represented?
-2. How do arrays work?
+2. How do arrays work? A lot of language-specific wrapping. Varsized allocation
+   is different per runtime.
 3. `unpack_($x, $y)` -- how do we specify implementation given types/etc?
 4. Do structs have polymorphic metaprogramming? (Sure, and they need to if
    we're gonna support externally-supplied `qe{}` block sigs, e.g. for array
