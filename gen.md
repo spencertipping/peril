@@ -41,11 +41,28 @@ code using a number of different backends.
 ### How this works
 There are a few things going on here:
 
-1. `args` and `var` create abstract values that overload operators and
-   assignment to track the operations that happen to them.
+1. `@_` and `var` return overloaded abstract variables that can generate
+   derivatives when you call functions or use operators on them. `var` uses
+   `tie()` to track assignments against mutable quantities.
 2. `qe{}` uses dynamic scoping track side effect timelines and make sure
-   expressions are accounted for.
+   expressions are accounted for. This is how `gen` knows when you've coerced
+   an abstract quantity in a concrete position or assigned to an immutable
+   quantity, for example.
 3. Function names all end in `_` to indicate that we want to _compile_ a call
    to the function rather than execute it immediately. Internally,
    `unpack_(stuff)` is a method call against the current `qe{}` block and will
    be pattern-matched to figure out which alternative is appropriate.
+
+### Using quoted functions
+Given the above definition of `$murmurhash3_32`:
+
+```
+my $h = &$murmurhash3_32("foo", 0);         # Just Work (TM)
+my $h = $murmurhash3_32->c99->("foo", 0);   # precompile as c99, then RMI
+```
+
+### Open questions
+1. How are structs represented?
+2. `unpack_($x, $y)` -- how do we specify implementation given types/etc?
+3. Do structs have polymorphic metaprogramming?
+4. Is there any runtime polymorphism?
