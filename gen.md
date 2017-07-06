@@ -39,5 +39,14 @@ uses operator overloading and `tie()` to build a graph of value operations and
 function calls. The result is an abstract function object that can compile your
 code using a number of different backends.
 
-## Value types
-`gen` views everything in terms of structs.
+### How this works
+There are a few things going on here:
+
+1. `args` and `var` create abstract values that overload operators and
+   assignment to track the operations that happen to them.
+2. `qe{}` uses dynamic scoping track side effect timelines and make sure
+   expressions are accounted for.
+3. Function names all end in `_` to indicate that we want to _compile_ a call
+   to the function rather than execute it immediately. Internally,
+   `unpack_(stuff)` is a method call against the current `qe{}` block and will
+   be pattern-matched to figure out which alternative is appropriate.
