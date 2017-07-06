@@ -29,9 +29,9 @@ sub foo {
   tie $_[0], 'bif';
 }
 
-sub bar {
+sub bar:lvalue {
   tie my $x, 'bif';
-  $x;
+  \$x;
 }
 
 foo my($x, $a);
@@ -40,8 +40,8 @@ $x = 11;
 print "$x\n";
 
 my $y = bar;
-$y = 15;
-print tied $y, "\n";
+$$y = 15;
+print tied $$y, "\n";
 
 tie my $z, 'replaceme';
 my $p1 = tied $z;
