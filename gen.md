@@ -61,8 +61,14 @@ my $h = &$murmurhash3_32("foo", 0);         # Just Work (TM)
 my $h = $murmurhash3_32->c99->("foo", 0);   # precompile as c99, then RMI
 ```
 
+### Types
+Types are fully erased during compilation.
+
 ### Open questions
 1. How are structs represented?
-2. `unpack_($x, $y)` -- how do we specify implementation given types/etc?
-3. Do structs have polymorphic metaprogramming?
-4. Is there any runtime polymorphism?
+2. How do arrays work?
+3. `unpack_($x, $y)` -- how do we specify implementation given types/etc?
+4. Do structs have polymorphic metaprogramming? (Sure, and they need to if
+   we're gonna support externally-supplied `qe{}` block sigs, e.g. for array
+   `|`.)
+5. Is there any runtime polymorphism? (No, just casting.)
