@@ -30,3 +30,6 @@ my $murmurhash3_32 = gen {
   ($h ^ $h >> 16)->return;
 };
 ```
+
+**TODO:** Justify `gen` at all. It's a nice DSL, but why not express these
+things structurally?
