@@ -5,24 +5,16 @@ unnecessary overhead.
 Example gen template, maybe:
 
 ```perl
-my $f = gen_ {
-  my $x = $_[0];
-  my $y = $x;
-  if_($y >= 10)
-  then_ {
-    $y += 5;
-    return_ $y;
-  }
-  else_ {
-    return_ 0;
-  }
+my $f = gen {
+  args uint32 => my $x;
+  var my $y = $x;
+  ($y >= 10)
+    ->if(gen {$y += 5; $y->return})
+    ->else(gen {return_ 0});
 
-  my $h = _{a => 4, b => 5};
-  my $v = $$h{a};         # q: how do we do this? (tied object, maybe)
-
-  my $xs = _[1,2,3];
-  grep_ {$_ % 2} @$xs;    # ...and this?
+  var my $h  = {a => 4, b => 5};
+  var my $v  = $$h{a};
+  var my $xs = [1, 2, 3];
+  $xs->grep(gen {$_ % 2});
 };
 ```
-
-Probably able to target Perl, C, JS, and possibly more.
