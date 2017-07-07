@@ -6,6 +6,7 @@ doesn't specify an implementation.
 
 ```perl
 package peril::i;
+use peril::gen;
 ```
 
 ## `read` utilities
@@ -19,16 +20,18 @@ layer.
   that buffer.
 
 ```perl
-sub read_into_exactly
-{ my ($self, undef, $length, $offset) = @_;
-  $offset ||= 0;
-  my $n = 0;
-  $n += $r while $r = $self->read_into($_[1], $length - $n, $offset + $n);
-  $n }
+read_into_exactly(io, _, uint32, uint32) = qe
+{ my ($io, $buf, $length, $offset) = @_;
+  var(uint32 => my $n) = 0;
+  var uint32 => my $r;
+  while_ qe {$r = read_into_($io, $buf, $length - $n, $offset + $n)},
+         qe {$n += $r};
+  $n };
 
-sub read
-{ my ($self, $n) = @_;
-  my $buf = $self->allocate_read_buffer($n);
-  $self->read_into_exactly($buf, $n);
-  $buf }
+# problem: `io` needs to be parameterized if we want allocate_read_buffer_ to
+# do the right thing here. Do we have parameterized types?
+read(io, uint32) = qe
+{ my ($io, $n) = @_;
+  read_into_exactly $io, my $buf = allocate_read_buffer_($io, $n), $n, 0;
+  $buf };
 ```
