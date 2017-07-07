@@ -7,7 +7,7 @@ read and write sides separately anyway.
 package peril;
 use peril::gen;
 
-use trait 'i';
+use trait 'io';
 ```
 
 ## `read` utilities
@@ -21,7 +21,7 @@ layer.
   that buffer.
 
 ```perl
-i->read_into_exactly_ = qe
+io->read_into_exactly_ = qe
 { my ($self, $buf, $length, $offset) = @_;
   var(uint32 => my $n) = 0;
   var uint32 => my $r;
@@ -29,7 +29,7 @@ i->read_into_exactly_ = qe
          qe {$n += $r};
   $n };
 
-i->read_ = qe
+io->read_ = qe
 { my ($self, $n) = @_;
   my $buf = $self->allocate_read_buffer_($n)->ref;
   $self->read_into_exactly_($buf, $n, 0);

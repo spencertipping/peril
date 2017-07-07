@@ -16,15 +16,14 @@ use constant murmur_n  => 0xe6546b64;
 my $murmurhash3_32 = qe {
   my ($str, $h) = @_;                   # $str and $h are abstract values
   var uint32 => $h;                     # set type and make $h mutable
-
-  unpack_('L*', $str) | qe {
+  $str->unpack('L*') | qe {
     $_ *= murmur_c1;
     $h ^= ($_ << 15 | $_ >> 17 & 0x7fff) * murmur_c2;
     $h  = ($h << 13 | $h >> 19 & 0x1fff) * 5 + murmur_n;
   };
 
-  my $r = unpack_(V => substr($str, ~3 & length_ $str) . "\0\0\0\0") * murmur_c1;
-  $h ^= ($r << 15 | $r >> 17 & 0x7fff) * murmur_c2 ^ length_ $str;
+  my $r = ($str->substr(~3 & $str->length) . "\0\0\0\0")->unpack('V') * murmur_c1;
+  $h ^= ($r << 15 | $r >> 17 & 0x7fff) * murmur_c2 ^ $str->length;
   $h  = ($h ^ $h >> 16) * 0x85ebca6b;
   $h  = ($h ^ $h >> 13) * 0xc2b2ae35;
   return_ $h ^ $h >> 16;
@@ -53,17 +52,21 @@ There are a few things going on here:
    `unpack_(stuff)` is a method call against the current `qe{}` block and will
    be pattern-matched to figure out which alternative is appropriate.
 
+(3) is a lie. Single-dispatch using method calls on structs, then no need for
+global functions.
+
 ### Using quoted functions
 Given the above definition of `$murmurhash3_32`:
 
 ```
-my $h = &$murmurhash3_32("foo", 0);         # Just Work (TM)
-my $h = $murmurhash3_32->c99->("foo", 0);   # precompile as c99, then RMI
+# no clue whether this is how it should work
+my $perl = perl_runtime->new;
+my $c    = c99_runtime->new;
+
+$perl->bind(murmurhash3_32 => $murmurhash3_32);
+$c->bind(   murmurhash3_32 => $murmurhash3_32);
+
+my $h = &$murmurhash3_32("foo", 0);         # interpret (slow)
+my $h = $perl->murmurhash3_32("foo", 0);    # compile to perl (less slow)
+my $h = $c->murmurhash3_32("foo", 0);       # compile to c (fast)
 ```
-
-### Types
-Types are fully erased during compilation.
-
-I'm way overthinking structs. This is really simple: they're just
-meta-functions that generate a bunch of scalar instructions. Memory allocation
-is a backend-specific thing.
