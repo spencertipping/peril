@@ -5,14 +5,20 @@ directly.
 
 ```perl
 package peril::ibuf;
-use bytes;
-use overload qw( ${} buffer_ref );
-sub new
-{ my ($class, $input) = @_;
-  bless {input       => $input,
-         read_buffer => '',
-         read_offset => 0,    # index of first valid buffer byte
-         error       => 0}, $class }
+use peril::gen;
+
+ibuf(io, x) = qe
+{ my ($io_struct, $element_type) = @_;
+  struct_(io     => $io_struct,
+          buf    => array_($element_type)->ref,
+          offset => uint32) };
+
+# alternatively?
+ibuf(io => my $io_struct,
+     x  => my $element_type)
+  = struct_(io     => $io_struct,
+            buf    => array_($element_type)->ref,
+            offset => uint32);
 ```
 
 ## Basic reads
@@ -26,13 +32,29 @@ buffer aren't a problem; most of them just involve incrementing the buffer
 offset.
 
 ```perl
-sub allocate_read_buffer { "\0" x $_[1] }
-sub compact_buffer
-{ my ($self) = @_;
-  return $self unless $$self{read_offset};
-  $$self{read_buffer} = substr $$self{read_buffer}, $$self{read_offset};
-  $$self{read_offset} = 0;
-  $self }
+# the ->ref stuff ... good? not sure. unclear that this would create a timeline
+# sequence point, if we care here.
+compact_buffer(io->ref) = qe
+{ my ($io) = @_;
+  return_($io)->unless_($$io->offset);
+  shift_ $$io->buf, $$io->offset;
+  $$io->offset(0);
+  $io };
+
+# uh oh, type parameter constraints ... this is awkward. they aren't bound to
+# anything.
+read_into(io(x, T)->ref, array(T)->ref, uint32, uint32) = qe
+{ my ($io, $xs, $length, $offset) = @_;
+  var $length;
+  return_(0)->unless_($length > 0);
+  if_ length_($$io->buf),
+    qe { my $available = -$$io->offset + length_ $$io->buf;
+         if_ $length > $available, qe {$length = $available};
+         # ???
+         $$io->offset += $length;
+         if_ $$io->offset >= length_($$io->buf) >> 1, qe {compact_buffer_ $io};
+         $length },
+    qe { read_ $$io->io, $xs, $length, $offset } };
 
 sub read_into
 { my ($self, undef, $length, $offset) = @_;
