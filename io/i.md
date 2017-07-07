@@ -1,12 +1,13 @@
 # Input stream
 The input side of I/O. Peril separates this from [output](o.md#) because
 bidirectional IO objects aren't terribly common, and typically you'd treat the
-read and write sides separately anyway. This class provides shared methods but
-doesn't specify an implementation.
+read and write sides separately anyway.
 
 ```perl
-package peril::i;
+package peril;
 use peril::gen;
+
+use trait 'i';
 ```
 
 ## `read` utilities
@@ -20,18 +21,17 @@ layer.
   that buffer.
 
 ```perl
-read_into_exactly(io, _, uint32, uint32) = qe
-{ my ($io, $buf, $length, $offset) = @_;
+i->read_into_exactly_ = qe
+{ my ($self, $buf, $length, $offset) = @_;
   var(uint32 => my $n) = 0;
   var uint32 => my $r;
-  while_ qe {$r = read_into_($io, $buf, $length - $n, $offset + $n)},
+  while_ qe {$r = $self->read_into_($buf, $length - $n, $offset + $n)},
          qe {$n += $r};
   $n };
 
-# problem: `io` needs to be parameterized if we want allocate_read_buffer_ to
-# do the right thing here. Do we have parameterized types?
-read(io, uint32) = qe
-{ my ($io, $n) = @_;
-  read_into_exactly $io, my $buf = allocate_read_buffer_($io, $n), $n, 0;
-  $buf };
+i->read_ = qe
+{ my ($self, $n) = @_;
+  my $buf = $self->allocate_read_buffer_($n)->ref;
+  $self->read_into_exactly_($buf, $n, 0);
+  $$buf };
 ```

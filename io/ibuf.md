@@ -4,21 +4,22 @@ is reasonably quick for small buffered reads and it lets you access the buffer
 directly.
 
 ```perl
-package peril::ibuf;
+package peril;
 use peril::gen;
 
-ibuf(io, x) = qe
-{ my ($io_struct, $element_type) = @_;
-  struct_(io     => $io_struct,
-          buf    => array_($element_type)->ref,
-          offset => uint32) };
+# how to parameterize this?
+# structurally, we've got something like:
+#
+#   ibuf = IO a => { io     :: a b,
+#                    buf    :: array(b)->ref,
+#                    offset :: uint32 }
+#
+# there's no runtime polymorphism going on here, so this can all be static. but
+# that requires IO to know that it's a parameterized type up front.
 
-# alternatively?
-ibuf(io => my $io_struct,
-     x  => my $element_type)
-  = struct_(io     => $io_struct,
-            buf    => array_($element_type)->ref,
-            offset => uint32);
+use struct ibuf => ( io     => _,
+                     buf    => array(_)->ref,
+                     offset => uint32 );
 ```
 
 ## Basic reads
@@ -32,29 +33,24 @@ buffer aren't a problem; most of them just involve incrementing the buffer
 offset.
 
 ```perl
-# the ->ref stuff ... good? not sure. unclear that this would create a timeline
-# sequence point, if we care here.
-compact_buffer(io->ref) = qe
-{ my ($io) = @_;
-  return_($io)->unless_($$io->offset);
-  shift_ $$io->buf, $$io->offset;
-  $$io->offset(0);
-  $io };
+ibuf->compact_buffer_ = qe
+{ my ($self) = @_;                      # receiver is an lvalue
+  return_($self)->unless_($self->offset);
+  $self->buf->shift_($self->offset);
+  $self->offset(0) };
 
-# uh oh, type parameter constraints ... this is awkward. they aren't bound to
-# anything.
-read_into(io(x, T)->ref, array(T)->ref, uint32, uint32) = qe
-{ my ($io, $xs, $length, $offset) = @_;
+ibuf->read_into_ = qe
+{ my ($self, $xs, $length, $offset) = @_;
   var $length;
   return_(0)->unless_($length > 0);
-  if_ length_($$io->buf),
-    qe { my $available = -$$io->offset + length_ $$io->buf;
+  if_ length_($io->buf),
+    qe { my $available = -$io->offset + length_ $io->buf;
          if_ $length > $available, qe {$length = $available};
          # ???
-         $$io->offset += $length;
-         if_ $$io->offset >= length_($$io->buf) >> 1, qe {compact_buffer_ $io};
+         $io->offset += $length;
+         if_ $io->offset >= length_($io->buf) >> 1, qe {$io->compact_buffer_};
          $length },
-    qe { read_ $$io->io, $xs, $length, $offset } };
+    qe { $self->io->read_($xs, $length, $offset) } };
 
 sub read_into
 { my ($self, undef, $length, $offset) = @_;
@@ -86,16 +82,16 @@ contents until you encounter the tag, then read exactly that much data.
 - `buffer($new_buf)`: sets the current buffer
 
 ```perl
-sub buffer_size
-{ my ($self) = @_; -$$self{read_offset} + length $$self{read_buffer} }
+ibuf->buffer_size_ = qe
+{ my ($self) = @_; -$self->offset + $self->buf->length_ };
 
-sub buffer_expand_by
+ibuf->buffer_expand_by_ = qe
 { my ($self, $n) = @_;
-  $self->read_into_exactly($$self{read_buffer}, $n, length $$self{read_buffer});
-  $self }
+  $self->read_into_exactly_($self->buf, $n, $self->buf->length_ );
+  $self };
 
-sub buffer_expand_to
-{ my ($self, $n) = @_; $self->buffer_expand_by($self->buffer_size - $n) }
+ibuf->buffer_expand_to_ = qe
+{ my ($self, $n) = @_; $self->buffer_expand_by_($self->buffer_size_ - $n) };
 
 sub buffer
 { my $self = shift;
