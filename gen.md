@@ -64,12 +64,6 @@ my $h = $murmurhash3_32->c99->("foo", 0);   # precompile as c99, then RMI
 ### Types
 Types are fully erased during compilation.
 
-### Open questions
-1. How are structs represented?
-2. How do arrays work? A lot of language-specific wrapping. Varsized allocation
-   is different per runtime.
-3. `unpack_($x, $y)` -- how do we specify implementation given types/etc?
-4. Do structs have polymorphic metaprogramming? (Sure, and they need to if
-   we're gonna support externally-supplied `qe{}` block sigs, e.g. for array
-   `|`.)
-5. Is there any runtime polymorphism? (No, just casting.)
+I'm way overthinking structs. This is really simple: they're just
+meta-functions that generate a bunch of scalar instructions. Memory allocation
+is a backend-specific thing.
