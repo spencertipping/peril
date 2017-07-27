@@ -41,7 +41,7 @@ ibuf->compact_buffer_ = qe
 
 ibuf->read_into_ = qe
 { my ($self, $xs, $length, $offset) = @_;
-  var $length;
+  var $length;                          # restrict assign into args? maybe
   return_(0)->unless_($length > 0);
   if_ length_($io->buf),
     qe { my $available = -$io->offset + length_ $io->buf;
@@ -87,7 +87,7 @@ ibuf->buffer_size_ = qe
 
 ibuf->buffer_expand_by_ = qe
 { my ($self, $n) = @_;
-  $self->read_into_exactly_($self->buf, $n, $self->buf->length_ );
+  $self->read_into_exactly_($self->buf, $n, $self->buf->length_);
   $self };
 
 ibuf->buffer_expand_to_ = qe
