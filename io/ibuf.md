@@ -7,19 +7,17 @@ directly.
 package peril;
 use peril::gen;
 
-# how to parameterize this?
-# structurally, we've got something like:
-#
-#   ibuf = IO a => { io     :: a b,
-#                    buf    :: array(b)->ref,
-#                    offset :: uint32 }
-#
-# there's no runtime polymorphism going on here, so this can all be static. but
-# that requires IO to know that it's a parameterized type up front.
+use trait 'ibuf';
 
-use struct ibuf => ( io     => _,
-                     buf    => array(_)->ref,
-                     offset => uint32 );
+# NB: this is all wrong; we should have structs that support compilation --
+# then _parameterized_ ibufs are themselves structs. (i.e. code is data)
+make_ibuf() = qe
+{ my ($io_type, $element_type) = @_;
+  ($io_type->produces == $element_type)->assert;
+  struct
+  { io     => $io_type,
+    buf    => $element_type->array->ref,
+    offset => L }->with_trait(ibuf) };
 ```
 
 ## Basic reads
