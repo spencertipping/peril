@@ -4,6 +4,7 @@ use warnings;
 
 # Base defs for tracked expressions
 package gen::block;
+push our @ISA, 'gen';
 
 package gen;
 our @blocks;
