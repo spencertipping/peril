@@ -36,8 +36,8 @@ Every new value, whether a block or an expression, registers itself with
 whichever block is current. For example, here's a simple function:
 
 ```
-my $plus_one = gen {
-  args my ($x);
+my $plus_one = qe {
+  my ($x) = @_;
   print_ "entering the function\n";
   print_ "adding one to $x\n";          # (interesting magic happening here btw)
   $x + 1;
@@ -61,8 +61,8 @@ doesn't touch either `print_` node, we know that `print_` is being used as a
 side effect. If, on the other hand, we had written something like this:
 
 ```
-my $plus_one = gen {
-  args my ($x);
+my $plus_one = qe {
+  my ($x) = @_;
   $x * 2;                               # side effect (but not really)
   $x + 1;
 };
