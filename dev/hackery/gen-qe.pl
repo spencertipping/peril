@@ -8,14 +8,20 @@ push our @ISA, 'gen';
 
 package gen;
 our @blocks;
-sub _block() {$blocks[-1]}
-sub _enter_block() {push @blocks, bless [], 'gen::block'}
-sub _exit_block()  {pop @blocks}
+sub __block() {$blocks[-1]}
+sub __enter_block() {push @blocks, bless [], 'gen::block'}
+sub __exit_block()  {pop @blocks}
 
 # NB: all methods here need to start with _ to avoid conflicts with quoted
 # calls
 use overload qw/ fallback 0
-                 nomethod _operate
-                 ${}      _deref
-                 @{}      _array
-                 &{}      _compile /;
+                 nomethod __operate
+                 ${}      __deref
+                 @{}      __array
+                 &{}      __compile /;
+
+# NB: nope, don't do this
+# meta-types should support methods that generate calls to real code
+sub AUTOLOAD
+{
+}
