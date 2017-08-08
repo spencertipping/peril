@@ -3,7 +3,7 @@
 
 Peril is a collaborative notebook editor and networked UNIX shell. It's
 designed to replace bash, tools like Jupyter, and various ad-hoc workflows
-involving `ssh` and `rsync`. Like all great tools, Peril ~was~ will have been
+involving `ssh` and `rsync`. Like all great tools, Peril ~~was~~ will have been
 written out of frustration and delusional perfectionism.
 
 ## Installation [TODO]
