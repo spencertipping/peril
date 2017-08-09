@@ -12,7 +12,7 @@ sub __block() {$blocks[-1]}
 sub __enter_block() {push @blocks, bless [], 'gen::block'}
 sub __exit_block()  {pop @blocks}
 
-# NB: all methods here need to start with _ to avoid conflicts with quoted
+# NB: all methods here need to start with __ to avoid conflicts with quoted
 # calls
 use overload qw/ fallback 0
                  nomethod __operate

@@ -63,5 +63,6 @@ sub bootstrap($)
 { ${my $data_io = peril::io->buffered_fh(shift)->buffer_expand_to(512)} =~ s/^\0+//;
   my $self = peril::image->new;
   my $tar  = $data_io->tar;
-  
+  # ??? PROFIT
+  }
 ```
