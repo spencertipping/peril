@@ -1,0 +1,4 @@
+#!/bin/bash
+rm -f peril
+cat src/boot.pl > peril
+chmod 550 peril
