@@ -47,7 +47,9 @@ you'd have no undo feature).
 ## Hosting model
 Like all great languages, peril is self-hosting. It bootstraps itself using a
 minimal executive combinator that manipulates the hosting Perl runtime when you
-give it source code. This entry point is defined as the `/peril/boot` tag.
+give it source code. This entry point is defined as the `/peril/boot` branch,
+whose parse table is configured to read commits in a low-level form and use
+them to update `/peril/boot`.
 
 ### Execution model
 Every value can be used as an input to a parser, which means that parsers
