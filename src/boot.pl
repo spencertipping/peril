@@ -6,6 +6,20 @@ eval($peril::boot = <<'_');
 use strict;
 use warnings;
 
+$peril::commit_id = 0;
+
+package peril::commit
+{
+  sub new
+  {
+    my ($class, $time, $delta, @parents) = @_;
+    bless { parents => \@parents,
+            time    => $time,
+            delta   => $delta,
+            id      => ++$peril::commit_id }, $class;
+  }
+}
+
 package peril::image
 {
   sub new
